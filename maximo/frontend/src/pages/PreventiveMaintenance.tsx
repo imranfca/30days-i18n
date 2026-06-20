@@ -9,9 +9,9 @@ export default function PreventiveMaintenance() {
   const [pms, setPms] = useState<PM[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<number | null>(null);
-  const now = new Date("2026-06-20");
+  const now = new Date();
 
-  const load = () => api.get<PM[]>("/api/pm").then((d) => { setPms(d); setLoading(false); });
+  const load = () => api.get<PM[]>("/api/pm").then((d) => setPms(d)).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
 
   const generate = async (pm: PM) => {

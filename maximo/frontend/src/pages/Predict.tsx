@@ -18,8 +18,12 @@ function ProbBar({ p }: { p: number }) {
 export default function Predict() {
   const nav = useNavigate();
   const [rows, setRows] = useState<PredictForecast[]>([]);
-  useEffect(() => { api.get<PredictForecast[]>("/api/ai/predict/forecasts").then(setRows); }, []);
-  if (!rows.length) return <Spinner />;
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    api.get<PredictForecast[]>("/api/ai/predict/forecasts").then(setRows).finally(() => setLoading(false));
+  }, []);
+  if (loading) return <Spinner />;
+  if (!rows.length) return <div className="empty">No prediction forecasts available.</div>;
 
   return (
     <>

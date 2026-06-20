@@ -23,9 +23,11 @@ export default function WorkOrderDetail() {
   const [labor, setLabor] = useState<Labor[]>([]);
   const [busy, setBusy] = useState(false);
 
-  const load = () => api.get<WorkOrder>(`/api/workorders/${id}`).then(setWo);
+  const [error, setError] = useState<string | null>(null);
+  const load = () => api.get<WorkOrder>(`/api/workorders/${id}`).then(setWo).catch((e) => setError(e.message));
   useEffect(() => { load(); api.get<Labor[]>("/api/labor").then(setLabor); }, [id]);
 
+  if (error) return <div className="empty">Could not load work order: {error}</div>;
   if (!wo) return <Spinner />;
 
   const transition = async (status: string) => {

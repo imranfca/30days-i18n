@@ -10,15 +10,24 @@ export default function ServiceRequests() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
+  const [convertingId, setConvertingId] = useState<number | null>(null);
   const [form, setForm] = useState({ description: "", reported_by: "", asset_id: "", priority: 3 });
 
-  const load = () => api.get<ServiceRequest[]>("/api/servicerequests").then((d) => { setSrs(d); setLoading(false); });
+  const load = () => api.get<ServiceRequest[]>("/api/servicerequests").then((d) => setSrs(d)).finally(() => setLoading(false));
   useEffect(() => { load(); api.get<Asset[]>("/api/assets").then(setAssets); }, []);
 
   const convert = async (sr: ServiceRequest) => {
-    const wo = await api.post<WorkOrder>(`/api/servicerequests/${sr.id}/convert`);
-    await load();
-    if (confirm(`Created ${wo.wo_num} from this request. Open it?`)) nav(`/workorders/${wo.id}`);
+    if (convertingId !== null) return;
+    setConvertingId(sr.id);
+    try {
+      const wo = await api.post<WorkOrder>(`/api/servicerequests/${sr.id}/convert`);
+      await load();
+      if (confirm(`Created ${wo.wo_num} from this request. Open it?`)) nav(`/workorders/${wo.id}`);
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setConvertingId(null);
+    }
   };
 
   const create = async () => {

@@ -8,9 +8,15 @@ export default function Visual() {
   const nav = useNavigate();
   const [rows, setRows] = useState<VisualInspection[]>([]);
   const [defectsOnly, setDefectsOnly] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => { api.get<VisualInspection[]>(`/api/ai/visual/inspections?defects_only=${defectsOnly}`).then(setRows); }, [defectsOnly]);
-  if (!rows.length && !defectsOnly) return <Spinner />;
+  useEffect(() => {
+    setLoading(true);
+    api.get<VisualInspection[]>(`/api/ai/visual/inspections?defects_only=${defectsOnly}`)
+      .then(setRows)
+      .finally(() => setLoading(false));
+  }, [defectsOnly]);
+  if (loading) return <Spinner />;
 
   const defects = rows.filter((r) => r.defect_detected).length;
 

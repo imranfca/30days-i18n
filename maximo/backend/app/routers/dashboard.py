@@ -1,19 +1,22 @@
 """Dashboard KPIs and reliability analytics."""
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .. import models
 from ..database import get_db
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
-NOW = datetime(2026, 6, 20)
 
 
 @router.get("/dashboard")
 def dashboard(db: Session = Depends(get_db)):
+    now = datetime.utcnow()
+    next_month_start = (
+        datetime(now.year + 1, 1, 1) if now.month == 12
+        else datetime(now.year, now.month + 1, 1)
+    )
     assets = db.query(models.Asset).all()
     work_orders = db.query(models.WorkOrder).all()
     pms = db.query(models.PreventiveMaintenance).all()
@@ -27,10 +30,10 @@ def dashboard(db: Session = Depends(get_db)):
     open_statuses = {"WAPPR", "APPR", "INPRG"}
     backlog = [w for w in work_orders if w.status in open_statuses]
 
-    overdue_pms = [p for p in pms if p.next_due and p.next_due < NOW and p.status == "ACTIVE"]
+    overdue_pms = [p for p in pms if p.next_due and p.next_due < now and p.status == "ACTIVE"]
     upcoming_pms = [
         p for p in pms
-        if p.next_due and NOW <= p.next_due <= NOW.replace(day=1).replace(month=NOW.month % 12 + 1)
+        if p.next_due and now <= p.next_due < next_month_start
     ]
 
     below_reorder = [i for i in inventory if i.current_balance <= i.reorder_point]
@@ -75,7 +78,12 @@ def dashboard(db: Session = Depends(get_db)):
 @router.get("/dashboard/wo-trend")
 def wo_trend(db: Session = Depends(get_db)):
     """Work-order volume by week for the last 12 weeks (for charting)."""
-    work_orders = db.query(models.WorkOrder).all()
+    cutoff = datetime.utcnow() - timedelta(weeks=12)
+    work_orders = (
+        db.query(models.WorkOrder)
+        .filter(models.WorkOrder.reported_date >= cutoff)
+        .all()
+    )
     buckets = {}
     for w in work_orders:
         if not w.reported_date:

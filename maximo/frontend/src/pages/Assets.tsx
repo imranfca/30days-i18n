@@ -19,7 +19,9 @@ export default function Assets() {
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (status) params.set("status", status);
-    api.get<Asset[]>(`/api/assets?${params}`).then((d) => { setAssets(d); setLoading(false); });
+    api.get<Asset[]>(`/api/assets?${params}`)
+      .then((d) => setAssets(d))
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => { api.get<Location[]>("/api/locations").then(setLocations); }, []);

@@ -73,6 +73,10 @@ def alert_to_work_order(alert_id: int, db: Session = Depends(get_db)):
     alert = db.query(models.MonitorAlert).get(alert_id)
     if not alert:
         raise HTTPException(404, "Alert not found")
+    # Only an OPEN alert can spawn a work order; this keeps retries or
+    # already-actioned alerts from inflating the backlog with duplicates.
+    if alert.status != "OPEN":
+        raise HTTPException(409, f"Alert {alert_id} is already {alert.status}")
     asset = db.query(models.Asset).get(alert.asset_id)
     wo = models.WorkOrder(
         wo_num=_next_wo_num(db),
@@ -131,6 +135,12 @@ def assist(query: schemas.AssistQuery, db: Session = Depends(get_db)):
 
     if any(k in q for k in ("health", "condition", "risk")):
         worst = db.query(models.Asset).order_by(models.Asset.health_score).first()
+        if not worst:
+            return schemas.AssistResponse(
+                answer="No assets are registered yet, so risk ranking cannot be computed.",
+                sources=["Asset master"],
+                suggested_actions=["Create or import assets, then rerun health analysis"],
+            )
         sources = ["Maximo Health", "Asset master"]
         actions = ["Review high-risk assets in the Health module"]
         return schemas.AssistResponse(
@@ -144,7 +154,7 @@ def assist(query: schemas.AssistQuery, db: Session = Depends(get_db)):
 
     if any(k in q for k in ("overdue", "due", "pm", "preventive")):
         from datetime import datetime
-        now = datetime(2026, 6, 20)
+        now = datetime.utcnow()
         pms = db.query(models.PreventiveMaintenance).all()
         overdue = [p for p in pms if p.next_due and p.next_due < now]
         actions = ["Generate work orders from overdue PMs"]

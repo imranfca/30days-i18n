@@ -18,7 +18,7 @@ export default function Assist() {
   const [busy, setBusy] = useState(false);
 
   const send = async (q: string) => {
-    if (!q.trim()) return;
+    if (busy || !q.trim()) return;
     setLog((l) => [...l, { role: "user", text: q }]);
     setInput("");
     setBusy(true);
@@ -43,10 +43,10 @@ export default function Assist() {
         {busy && <div className="bubble bot">Thinking…</div>}
       </div>
       <div className="suggest" style={{ marginBottom: 12 }}>
-        {STARTERS.map((s) => <span key={s} className="chip" onClick={() => send(s)}>{s}</span>)}
+        {STARTERS.map((s) => <button key={s} type="button" className="chip" disabled={busy} onClick={() => send(s)}>{s}</button>)}
       </div>
       <form style={{ display: "flex", gap: 10 }} onSubmit={(e) => { e.preventDefault(); send(input); }}>
-        <input placeholder="Ask about assets, PMs, inventory…" value={input} onChange={(e) => setInput(e.target.value)} />
+        <input placeholder="Ask about assets, PMs, inventory…" value={input} onChange={(e) => setInput(e.target.value)} disabled={busy} />
         <button className="btn" type="submit" disabled={busy}>Send</button>
       </form>
     </div>

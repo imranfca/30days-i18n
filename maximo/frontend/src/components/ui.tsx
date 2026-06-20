@@ -81,7 +81,7 @@ export function Modal({
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <h2>{title}</h2>
-          <button className="close-x" onClick={onClose}>×</button>
+          <button type="button" className="close-x" onClick={onClose}>×</button>
         </div>
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-foot">{footer}</div>}

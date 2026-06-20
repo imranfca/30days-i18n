@@ -14,20 +14,23 @@ export default function Dashboard() {
   const [pms, setPms] = useState<PM[]>([]);
   const [wos, setWos] = useState<WorkOrder[]>([]);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   useEffect(() => {
-    api.get<DashboardData>("/api/dashboard").then(setD);
-    api.get<Trend[]>("/api/dashboard/wo-trend").then(setTrend);
-    api.get<MonitorAlert[]>("/api/ai/monitor/alerts?status=OPEN").then(setAlerts);
-    api.get<PM[]>("/api/pm").then(setPms);
-    api.get<WorkOrder[]>("/api/workorders").then(setWos);
+    api.get<DashboardData>("/api/dashboard").then(setD).catch(() => setLoadError("Failed to load dashboard data."));
+    api.get<Trend[]>("/api/dashboard/wo-trend").then(setTrend).catch(() => {});
+    api.get<MonitorAlert[]>("/api/ai/monitor/alerts?status=OPEN").then(setAlerts).catch(() => {});
+    api.get<PM[]>("/api/pm").then(setPms).catch(() => {});
+    api.get<WorkOrder[]>("/api/workorders").then(setWos).catch(() => {});
   }, []);
 
+  if (loadError) return <div className="empty">{loadError}</div>;
   if (!d) return <Spinner />;
 
-  const now = new Date("2026-06-20");
+  const now = new Date();
   const overduePms = pms.filter((p) => p.next_due && new Date(p.next_due) < now).slice(0, 5);
   const recentWos = wos.slice(0, 6);
-  const maxTrend = Math.max(...trend.map((t) => t.created), 1);
+  const maxTrend = Math.max(...trend.flatMap((t) => [t.created, t.completed]), 1);
 
   const woStatusData = Object.entries(d.wo_by_status).map(([label, value]) => ({ label, value }));
   const statusColor = (k: string) =>
@@ -94,7 +97,7 @@ export default function Dashboard() {
 
       <div className="grid cols-2" style={{ marginTop: 16 }}>
         <div className="card">
-          <div className="card-title-row"><h3>Critical & Open Alerts</h3><div className="spacer" /><a onClick={() => nav("/ai/monitor")} style={{ cursor: "pointer" }}>View all →</a></div>
+          <div className="card-title-row"><h3>Critical & Open Alerts</h3><div className="spacer" /><button type="button" className="btn ghost sm" onClick={() => nav("/ai/monitor")}>View all →</button></div>
           {alerts.slice(0, 5).map((a) => (
             <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--gray-20)" }}>
               <Badge value={a.severity} />
@@ -108,7 +111,7 @@ export default function Dashboard() {
         </div>
 
         <div className="card">
-          <div className="card-title-row"><h3>Overdue Preventive Maintenance</h3><div className="spacer" /><a onClick={() => nav("/pm")} style={{ cursor: "pointer" }}>View all →</a></div>
+          <div className="card-title-row"><h3>Overdue Preventive Maintenance</h3><div className="spacer" /><button type="button" className="btn ghost sm" onClick={() => nav("/pm")}>View all →</button></div>
           {overduePms.map((p) => (
             <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--gray-20)" }}>
               <span className="mono">{p.pm_num}</span>
@@ -122,7 +125,7 @@ export default function Dashboard() {
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>
-        <div className="card-title-row"><h3>Recent Work Orders</h3><div className="spacer" /><a onClick={() => nav("/workorders")} style={{ cursor: "pointer" }}>View all →</a></div>
+        <div className="card-title-row"><h3>Recent Work Orders</h3><div className="spacer" /><button type="button" className="btn ghost sm" onClick={() => nav("/workorders")}>View all →</button></div>
         <table>
           <thead><tr><th>WO</th><th>Description</th><th>Asset</th><th>Type</th><th>Priority</th><th>Status</th><th>Assigned</th></tr></thead>
           <tbody>

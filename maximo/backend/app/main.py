@@ -1,7 +1,8 @@
 """FastAPI application for the Maximo-style Enterprise Asset Management suite."""
 import os
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -18,10 +19,14 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# The SPA is served same-origin and the API uses no cookies/credentials, so a
+# wildcard origin is fine — but per the CORS spec it must not be combined with
+# allow_credentials=True. Origins can be restricted via the CORS_ORIGINS env var.
+_origins = os.environ.get("CORS_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=[o.strip() for o in _origins],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -45,13 +50,18 @@ app.include_router(ai.router)
 
 
 # Serve the built React frontend (single-deployable bundle) when present.
-_DIST = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
-if os.path.isdir(_DIST):
-    app.mount("/assets", StaticFiles(directory=os.path.join(_DIST, "assets")), name="static-assets")
+_DIST = Path(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")).resolve()
+if _DIST.is_dir():
+    app.mount("/assets", StaticFiles(directory=_DIST / "assets"), name="static-assets")
 
     @app.get("/{full_path:path}", include_in_schema=False)
     def spa(full_path: str):
-        candidate = os.path.join(_DIST, full_path)
-        if full_path and os.path.isfile(candidate):
+        # Unknown /api/* paths should 404 as API routes, not fall back to the SPA.
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not found")
+        # Resolve canonically and enforce the dist boundary to block path traversal
+        # (e.g. requests like ../../etc/passwd).
+        candidate = (_DIST / full_path).resolve()
+        if full_path and candidate.is_file() and _DIST in candidate.parents:
             return FileResponse(candidate)
-        return FileResponse(os.path.join(_DIST, "index.html"))
+        return FileResponse(_DIST / "index.html")

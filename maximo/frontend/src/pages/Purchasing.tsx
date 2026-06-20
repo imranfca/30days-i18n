@@ -21,7 +21,7 @@ export default function Purchasing() {
     if (!next) return;
     await api.post(`/api/purchaseorders/${po.id}/status`, { status: next });
     load();
-    if (open) setOpen({ ...open, status: next });
+    setOpen((curr) => (curr && curr.id === po.id ? { ...curr, status: next } : curr));
   };
 
   if (loading) return <Spinner />;

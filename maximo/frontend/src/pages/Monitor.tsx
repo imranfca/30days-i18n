@@ -8,15 +8,24 @@ export default function Monitor() {
   const nav = useNavigate();
   const [alerts, setAlerts] = useState<MonitorAlert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<number | null>(null);
 
-  const load = () => api.get<MonitorAlert[]>("/api/ai/monitor/alerts").then((d) => { setAlerts(d); setLoading(false); });
+  const load = () => api.get<MonitorAlert[]>("/api/ai/monitor/alerts").then((d) => setAlerts(d)).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
 
   const ack = async (a: MonitorAlert) => { await api.post(`/api/ai/monitor/alerts/${a.id}/acknowledge`); load(); };
   const createWo = async (a: MonitorAlert) => {
-    const wo = await api.post<WorkOrder>(`/api/ai/monitor/alerts/${a.id}/create-wo`);
-    await load();
-    if (confirm(`Created ${wo.wo_num} from alert. Open it?`)) nav(`/workorders/${wo.id}`);
+    if (busyId !== null) return;
+    setBusyId(a.id);
+    try {
+      const wo = await api.post<WorkOrder>(`/api/ai/monitor/alerts/${a.id}/create-wo`);
+      await load();
+      if (confirm(`Created ${wo.wo_num} from alert. Open it?`)) nav(`/workorders/${wo.id}`);
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setBusyId(null);
+    }
   };
 
   if (loading) return <Spinner />;
@@ -43,12 +52,12 @@ export default function Monitor() {
                 <td>{a.metric}</td>
                 <td><Badge value={a.alert_type} color="gray" /></td>
                 <td>{a.message}</td>
-                <td>{a.value || "—"}</td>
+                <td>{a.value ?? "—"}</td>
                 <td>{fmtDate(a.detected_at)}</td>
                 <td><Badge value={a.status} /></td>
                 <td style={{ whiteSpace: "nowrap" }}>
                   {a.status === "OPEN" && <button className="btn sm secondary" onClick={() => ack(a)} style={{ marginRight: 6 }}>Ack</button>}
-                  <button className="btn sm" onClick={() => createWo(a)}>+ WO</button>
+                  {a.status === "OPEN" && <button className="btn sm" disabled={busyId === a.id} onClick={() => createWo(a)}>+ WO</button>}
                 </td>
               </tr>
             ))}

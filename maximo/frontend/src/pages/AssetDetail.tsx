@@ -35,6 +35,7 @@ export default function AssetDetail() {
   const [wos, setWos] = useState<WorkOrder[]>([]);
 
   useEffect(() => {
+    if (!id) return;
     api.get<Asset>(`/api/assets/${id}`).then(setAsset);
     api.get<WorkOrder[]>(`/api/assets/${id}/workorders`).then(setWos);
   }, [id]);
@@ -88,7 +89,7 @@ export default function AssetDetail() {
                 <td><PriorityBadge value={w.priority} /></td>
                 <td><Badge value={w.status} /></td>
                 <td>{fmtDate(w.reported_date)}</td>
-                <td className="right">{fmtMoney(w.actual_cost || w.estimated_cost)}</td>
+                <td className="right">{fmtMoney(w.actual_cost ?? w.estimated_cost)}</td>
               </tr>
             ))}
             {wos.length === 0 && <tr className="norow"><td colSpan={7} className="muted">No work orders for this asset.</td></tr>}

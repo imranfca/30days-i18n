@@ -110,6 +110,10 @@ def create_purchase_order(payload: schemas.PurchaseOrderCreate, db: Session = De
     obj = models.PurchaseOrder(po_num=num, order_date=datetime.utcnow(), **data)
     total = 0.0
     for ln in lines:
+        if ln["quantity"] <= 0:
+            raise HTTPException(400, "PO line quantity must be greater than 0")
+        if ln["unit_cost"] < 0:
+            raise HTTPException(400, "PO line unit_cost must be non-negative")
         ln["line_cost"] = round(ln["quantity"] * ln["unit_cost"], 2)
         total += ln["line_cost"]
         obj.lines.append(models.POLine(**ln))
@@ -127,9 +131,11 @@ def change_po_status(po_id: int, payload: schemas.StatusUpdate, db: Session = De
         raise HTTPException(404, "Purchase order not found")
     previous_status = obj.status
     obj.status = payload.status
-    # Replenish inventory only on the transition *into* RECEIVED, so retried or
-    # duplicate receive calls don't double-count stock.
-    if payload.status == "RECEIVED" and previous_status != "RECEIVED":
+    # Replenish inventory only on the first transition into RECEIVED from an
+    # un-received state. Excluding both RECEIVED and the downstream CLOSE state
+    # keeps retries and a normal receive-then-close-then-receive cycle from
+    # double-counting stock.
+    if payload.status == "RECEIVED" and previous_status not in ("RECEIVED", "CLOSE"):
         for ln in obj.lines:
             if ln.item_id:
                 inv = (

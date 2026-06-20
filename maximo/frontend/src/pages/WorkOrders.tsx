@@ -21,7 +21,9 @@ export default function WorkOrders() {
     const params = new URLSearchParams();
     if (status) params.set("status", status);
     if (type) params.set("work_type", type);
-    api.get<WorkOrder[]>(`/api/workorders?${params}`).then((d) => { setWos(d); setLoading(false); });
+    api.get<WorkOrder[]>(`/api/workorders?${params}`)
+      .then((d) => setWos(d))
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => {

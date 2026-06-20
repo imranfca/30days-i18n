@@ -49,7 +49,7 @@ class Meter(MeterBase):
 
 
 class MeterReadingCreate(ORMModel):
-    meter_id: int
+    # meter_id comes from the path (/meters/{meter_id}/readings), not the body.
     reading: float
     reading_date: Optional[datetime] = None
 

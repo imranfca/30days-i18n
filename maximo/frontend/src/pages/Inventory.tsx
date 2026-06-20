@@ -10,7 +10,9 @@ export default function InventoryPage() {
 
   const load = () => {
     setLoading(true);
-    api.get<Inventory[]>(`/api/inventory?below_reorder=${belowOnly}`).then((d) => { setRows(d); setLoading(false); });
+    api.get<Inventory[]>(`/api/inventory?below_reorder=${belowOnly}`)
+      .then((d) => setRows(d))
+      .finally(() => setLoading(false));
   };
   useEffect(load, [belowOnly]);
 
