@@ -8,6 +8,10 @@ backend/maximo.db
 frontend/node_modules/
 frontend/dist/
 
+# Re-include the app source 'lib' dir (the repo-root .gitignore ignores lib/)
+!frontend/src/lib/
+!frontend/src/lib/**
+
 # Misc
 .DS_Store
 *.log

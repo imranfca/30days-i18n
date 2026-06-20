@@ -206,8 +206,9 @@ class WorkOrderCreate(ORMModel):
 
 
 class WorkOrderUpdate(ORMModel):
+    # Note: status is intentionally excluded — status changes must go through
+    # POST /workorders/{id}/status so the workflow guard & side effects apply.
     description: Optional[str] = None
-    status: Optional[str] = None
     priority: Optional[int] = None
     assigned_to_id: Optional[int] = None
     scheduled_start: Optional[datetime] = None

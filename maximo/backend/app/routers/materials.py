@@ -125,9 +125,11 @@ def change_po_status(po_id: int, payload: schemas.StatusUpdate, db: Session = De
     obj = db.query(models.PurchaseOrder).get(po_id)
     if not obj:
         raise HTTPException(404, "Purchase order not found")
+    previous_status = obj.status
     obj.status = payload.status
-    # Receiving a PO replenishes inventory balances for its lines
-    if payload.status == "RECEIVED":
+    # Replenish inventory only on the transition *into* RECEIVED, so retried or
+    # duplicate receive calls don't double-count stock.
+    if payload.status == "RECEIVED" and previous_status != "RECEIVED":
         for ln in obj.lines:
             if ln.item_id:
                 inv = (
