@@ -1,0 +1,13 @@
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+backend/maximo.db
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+
+# Misc
+.DS_Store
+*.log
