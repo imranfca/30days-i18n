@@ -27,6 +27,15 @@ def _next_wo_num(db: Session) -> str:
     return f"WO-{base}"
 
 
+def _backfill_location(data: dict, db: Session) -> dict:
+    """Inherit the asset's location when an asset is set but no location is given."""
+    if data.get("asset_id") and not data.get("location_id"):
+        asset = db.query(models.Asset).get(data["asset_id"])
+        if asset and asset.location_id:
+            data["location_id"] = asset.location_id
+    return data
+
+
 # ------------------------------- Crafts ----------------------------------- #
 @router.get("/crafts", response_model=List[schemas.Craft])
 def list_crafts(db: Session = Depends(get_db)):
@@ -106,7 +115,7 @@ def get_work_order(wo_id: int, db: Session = Depends(get_db)):
 
 @router.post("/workorders", response_model=schemas.WorkOrder)
 def create_work_order(payload: schemas.WorkOrderCreate, db: Session = Depends(get_db)):
-    data = payload.model_dump()
+    data = _backfill_location(payload.model_dump(), db)
     obj = models.WorkOrder(wo_num=_next_wo_num(db), reported_date=datetime.utcnow(), **data)
     db.add(obj)
     db.commit()
@@ -218,8 +227,8 @@ def list_service_requests(db: Session = Depends(get_db), status: Optional[str] =
 def create_service_request(payload: schemas.ServiceRequestCreate, db: Session = Depends(get_db)):
     last = db.query(models.ServiceRequest).order_by(models.ServiceRequest.id.desc()).first()
     num = f"SR-{3000 + (last.id if last else 0) + 1}"
-    obj = models.ServiceRequest(ticket_num=num, reported_date=datetime.utcnow(),
-                                **payload.model_dump())
+    data = _backfill_location(payload.model_dump(), db)
+    obj = models.ServiceRequest(ticket_num=num, reported_date=datetime.utcnow(), **data)
     db.add(obj)
     db.commit()
     db.refresh(obj)
