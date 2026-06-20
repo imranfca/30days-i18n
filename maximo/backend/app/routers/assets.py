@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
@@ -96,8 +97,16 @@ def delete_asset(asset_id: int, db: Session = Depends(get_db)):
     obj = db.query(models.Asset).get(asset_id)
     if not obj:
         raise HTTPException(404, "Asset not found")
-    db.delete(obj)
-    db.commit()
+    try:
+        db.delete(obj)
+        db.commit()
+    except IntegrityError:
+        # Foreign-key enforcement blocks deleting an asset still referenced by
+        # work orders, PMs, meters, etc. Report a clean conflict instead of 500.
+        db.rollback()
+        raise HTTPException(
+            409, "Asset has dependent records (work orders, PMs, …) and cannot be deleted"
+        )
     return {"deleted": asset_id}
 
 

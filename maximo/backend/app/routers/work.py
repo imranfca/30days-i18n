@@ -190,11 +190,17 @@ def generate_wo_from_pm(pm_id: int, db: Session = Depends(get_db)):
     jp = db.query(models.JobPlan).get(pm.job_plan_id) if pm.job_plan_id else None
     est_hours = jp.estimated_duration if jp else 4.0
     est_cost = (jp.estimated_labor_cost + jp.estimated_material_cost) if jp else 200.0
+    # Inherit the asset's location when the PM itself has none.
+    location_id = pm.location_id
+    if not location_id and pm.asset_id:
+        asset = db.query(models.Asset).get(pm.asset_id)
+        if asset:
+            location_id = asset.location_id
     wo = models.WorkOrder(
         wo_num=_next_wo_num(db),
         description=f"PM: {pm.description}",
         asset_id=pm.asset_id,
-        location_id=pm.location_id,
+        location_id=location_id,
         job_plan_id=pm.job_plan_id,
         status="WAPPR",
         priority=pm.priority,
