@@ -5,7 +5,6 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 
 from .database import Base, engine
 from .routers import ai, assets, dashboard, materials, work
@@ -50,9 +49,12 @@ app.include_router(ai.router)
 
 
 # Serve the built React frontend (single-deployable bundle) when present.
+# Note: we deliberately do NOT mount StaticFiles at "/assets" — that path is also
+# a SPA route (/assets, /assets/:id), and a mount there would shadow it so direct
+# visits/reloads 404. The catch-all below serves real bundle files (including
+# /assets/*.js) and falls back to index.html for client-side routes.
 _DIST = Path(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")).resolve()
 if _DIST.is_dir():
-    app.mount("/assets", StaticFiles(directory=_DIST / "assets"), name="static-assets")
 
     @app.get("/{full_path:path}", include_in_schema=False)
     def spa(full_path: str):
@@ -60,7 +62,8 @@ if _DIST.is_dir():
         if full_path.startswith("api/"):
             raise HTTPException(status_code=404, detail="Not found")
         # Resolve canonically and enforce the dist boundary to block path traversal
-        # (e.g. requests like ../../etc/passwd).
+        # (e.g. requests like ../../etc/passwd). Real files (the JS/CSS bundle,
+        # favicon, etc.) are served directly; everything else returns the SPA shell.
         candidate = (_DIST / full_path).resolve()
         if full_path and candidate.is_file() and _DIST in candidate.parents:
             return FileResponse(candidate)
