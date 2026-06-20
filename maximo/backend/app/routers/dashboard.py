@@ -33,7 +33,7 @@ def dashboard(db: Session = Depends(get_db)):
     overdue_pms = [p for p in pms if p.next_due and p.next_due < now and p.status == "ACTIVE"]
     upcoming_pms = [
         p for p in pms
-        if p.next_due and now <= p.next_due < next_month_start
+        if p.status == "ACTIVE" and p.next_due and now <= p.next_due < next_month_start
     ]
 
     below_reorder = [i for i in inventory if i.current_balance <= i.reorder_point]

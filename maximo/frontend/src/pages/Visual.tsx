@@ -9,14 +9,18 @@ export default function Visual() {
   const [rows, setRows] = useState<VisualInspection[]>([]);
   const [defectsOnly, setDefectsOnly] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     api.get<VisualInspection[]>(`/api/ai/visual/inspections?defects_only=${defectsOnly}`)
       .then(setRows)
+      .catch((e: any) => setError(e?.message ?? "Failed to load inspections"))
       .finally(() => setLoading(false));
   }, [defectsOnly]);
   if (loading) return <Spinner />;
+  if (error) return <div className="empty">Error: {error}</div>;
 
   const defects = rows.filter((r) => r.defect_detected).length;
 

@@ -156,7 +156,10 @@ def assist(query: schemas.AssistQuery, db: Session = Depends(get_db)):
         from datetime import datetime
         now = datetime.utcnow()
         pms = db.query(models.PreventiveMaintenance).all()
-        overdue = [p for p in pms if p.next_due and p.next_due < now]
+        overdue = sorted(
+            [p for p in pms if p.next_due and p.next_due < now],
+            key=lambda p: p.next_due,
+        )
         actions = ["Generate work orders from overdue PMs"]
         return schemas.AssistResponse(
             answer=(
