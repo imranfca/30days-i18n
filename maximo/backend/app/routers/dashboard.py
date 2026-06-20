@@ -39,8 +39,12 @@ def dashboard(db: Session = Depends(get_db)):
     below_reorder = [i for i in inventory if i.current_balance <= i.reorder_point]
     inv_value = sum(i.current_balance * i.unit_cost for i in inventory)
 
-    # Reliability: MTTR from completed corrective work orders
-    completed = [w for w in work_orders if w.status in ("COMP", "CLOSE") and w.actual_hours]
+    # Reliability: MTTR from completed *repair* work (corrective/emergency only),
+    # so planned PM and inspection durations don't skew the metric.
+    completed = [
+        w for w in work_orders
+        if w.status in ("COMP", "CLOSE") and w.actual_hours and w.work_type in ("CM", "EM")
+    ]
     mttr = round(sum(w.actual_hours for w in completed) / len(completed), 1) if completed else 0.0
 
     total_maint_cost = sum(w.actual_cost for w in work_orders if w.actual_cost)

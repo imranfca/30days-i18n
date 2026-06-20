@@ -243,6 +243,10 @@ def convert_sr_to_wo(sr_id: int, db: Session = Depends(get_db)):
     sr = db.query(models.ServiceRequest).get(sr_id)
     if not sr:
         raise HTTPException(404, "Service request not found")
+    if sr.status not in ("NEW", "QUEUED"):
+        raise HTTPException(
+            409, f"Service request {sr.ticket_num} is {sr.status} and cannot be converted"
+        )
     existing = db.query(models.WorkOrder).filter(models.WorkOrder.sr_id == sr.id).first()
     if existing:
         raise HTTPException(

@@ -10,6 +10,17 @@ from ..database import get_db
 
 router = APIRouter(prefix="/api", tags=["materials"])
 
+# Forward-only purchase-order status flow. Because RECEIVED can only advance to
+# CLOSE, a PO can never re-enter RECEIVED, so its inventory receipt runs exactly once.
+PO_FLOW = {
+    "WAPPR": ["APPR", "CAN"],
+    "APPR": ["INPRG", "CAN"],
+    "INPRG": ["RECEIVED"],
+    "RECEIVED": ["CLOSE"],
+    "CLOSE": [],
+    "CAN": [],
+}
+
 
 # --------------------------------- Items ---------------------------------- #
 @router.get("/items", response_model=List[schemas.Item])
@@ -129,13 +140,15 @@ def change_po_status(po_id: int, payload: schemas.StatusUpdate, db: Session = De
     obj = db.query(models.PurchaseOrder).get(po_id)
     if not obj:
         raise HTTPException(404, "Purchase order not found")
-    previous_status = obj.status
+    allowed = PO_FLOW.get(obj.status, [])
+    if payload.status not in allowed:
+        raise HTTPException(
+            400, f"Invalid PO transition {obj.status} -> {payload.status}. Allowed: {allowed}"
+        )
     obj.status = payload.status
-    # Replenish inventory only on the first transition into RECEIVED from an
-    # un-received state. Excluding both RECEIVED and the downstream CLOSE state
-    # keeps retries and a normal receive-then-close-then-receive cycle from
-    # double-counting stock.
-    if payload.status == "RECEIVED" and previous_status not in ("RECEIVED", "CLOSE"):
+    # The forward-only flow guarantees RECEIVED is entered at most once, so the
+    # inventory receipt below can never double-count stock.
+    if payload.status == "RECEIVED":
         for ln in obj.lines:
             if ln.item_id:
                 inv = (
