@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from .. import models
@@ -81,23 +82,35 @@ def dashboard(db: Session = Depends(get_db)):
 
 @router.get("/dashboard/wo-trend")
 def wo_trend(db: Session = Depends(get_db)):
-    """Work-order volume by week for the last 12 weeks (for charting)."""
+    """Work-order volume by week for the last 12 weeks (for charting).
+
+    'created' is bucketed by reported week; 'completed' by the week the work was
+    actually finished — so a work order opened before the window but completed
+    within it still shows its completion.
+    """
     cutoff = datetime.utcnow() - timedelta(weeks=12)
     work_orders = (
         db.query(models.WorkOrder)
-        .filter(models.WorkOrder.reported_date >= cutoff)
+        .filter(
+            or_(
+                models.WorkOrder.reported_date >= cutoff,
+                models.WorkOrder.actual_finish >= cutoff,
+            )
+        )
         .all()
     )
     buckets = {}
+
+    def _bucket(when):
+        iso = when.isocalendar()
+        key = f"{iso[0]}-W{iso[1]:02d}"
+        return buckets.setdefault(key, {"week": key, "created": 0, "completed": 0})
+
     for w in work_orders:
-        if not w.reported_date:
-            continue
-        week = w.reported_date.isocalendar()
-        key = f"{week[0]}-W{week[1]:02d}"
-        buckets.setdefault(key, {"week": key, "created": 0, "completed": 0})
-        buckets[key]["created"] += 1
-        if w.status in ("COMP", "CLOSE"):
-            buckets[key]["completed"] += 1
+        if w.reported_date and w.reported_date >= cutoff:
+            _bucket(w.reported_date)["created"] += 1
+        if w.status in ("COMP", "CLOSE") and w.actual_finish and w.actual_finish >= cutoff:
+            _bucket(w.actual_finish)["completed"] += 1
     return sorted(buckets.values(), key=lambda x: x["week"])
 
 
