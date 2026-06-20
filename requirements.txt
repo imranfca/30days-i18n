@@ -1,3 +1,0 @@
-./streamlit-1.21.0-py2.py3-none-any.whl
-langcodes==3.3.0
-language-data==1.1
