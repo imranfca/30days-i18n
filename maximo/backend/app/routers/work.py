@@ -187,6 +187,20 @@ def generate_wo_from_pm(pm_id: int, db: Session = Depends(get_db)):
     pm = db.query(models.PreventiveMaintenance).get(pm_id)
     if not pm:
         raise HTTPException(404, "PM not found")
+    # Idempotency: if this PM already has an open (uncompleted) generated work
+    # order, return it instead of stacking a duplicate and advancing next_due an
+    # extra interval. A new WO is only generated once the prior one is closed.
+    existing = (
+        db.query(models.WorkOrder)
+        .filter(
+            models.WorkOrder.pm_id == pm.id,
+            models.WorkOrder.status.in_(("WAPPR", "APPR", "INPRG")),
+        )
+        .order_by(models.WorkOrder.id.desc())
+        .first()
+    )
+    if existing:
+        return existing
     jp = db.query(models.JobPlan).get(pm.job_plan_id) if pm.job_plan_id else None
     est_hours = jp.estimated_duration if jp else 4.0
     est_cost = (jp.estimated_labor_cost + jp.estimated_material_cost) if jp else 200.0
